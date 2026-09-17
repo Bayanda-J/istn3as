@@ -1,0 +1,197 @@
+using System;
+using System.Linq;
+using System.Collections.Generic;
+namespace TVSalesSystem
+{
+//
+// ENTITY CLASSES (as shown in the EF diagram, Q1.2)
+//
+public class Customer
+{
+public int CustID { get; set; }
+public string Name { get; set; }
+private int age;
+public int Age
+{
+get { return age; }
+set
+{
+// Q1.3: setter must keep Age in range 15-100, else default to 15
+if (value &gt;= 15 &amp;&amp; value &lt;= 100)
+age = value;
+else
+age = 15;
+}
+}
+// Q1.3: default constructor
+public Customer() { }
+// Q1.3: overloaded constructor setting Name and Age
+public Customer(string name, int age)
+{
+Name = name;
+Age = age; // goes through the setter above, so range check still app
+}
+public void DisplayCustomerInfo()
+
+{
+Console.WriteLine($&quot;Customer ID: {CustID}\t, Name: {Name}\t, Age: {Ag
+}
+}
+public class TV
+{
+public int TVID { get; set; }
+public string TV_Brand { get; set; }
+public string TV_Model { get; set; }
+public decimal UnitPrice { get; set; }
+public int QoH { get; set; }
+public void DisplayTVInfo()
+{
+Console.WriteLine($&quot;TV ID: {TVID}\t, Brand: {TV_Brand}\t, Model: {TV_
+}
+}
+public class TVSale
+{
+public int SaleNo { get; set; }
+public int CustID { get; set; }
+public int TVID { get; set; }
+public int Qty { get; set; }
+public decimal UnitPrice { get; set; }
+}
+//
+// MAIN PRoGRAM CLASS
+//
+class Program
+{
+// Use your actual EF DbContext here (database first).
+// Example: TVDatabaseEntities db = new TVDatabaseEntities();
+static TVDatabaseEntities db = new TVDatabaseEntities();
+static void Main(string[] args)
+{
+// ------------- Q1.2: display contents of each class -------------
+DisplayAllCustomers();
+DisplayAllTVs();
+DisplayAllTVSales();
+// Q1.4: sorted displays
+DisplayCustomersSortedByName(); // ascending by Name
+DisplayTVsSortedByUnitPriceDesc(); // descending by UnitPrice
+
+// ------------- Q1.7: execute Q1.5 and Q1.6 -------------
+ProcessTVSale(); // Q1.5
+DisplayFinalisedSales(); // Q1.6
+// Show all TVs again to confirm QoH was reduced
+DisplayAllTVs();
+Console.WriteLine(&quot;\nAll Done&quot;);
+Console.ReadLine();
+}
+// =====================================================
+// Q1.2 — Void methods that display the contents of each class
+// =====================================================
+static void DisplayAllCustomers()
+{
+Console.WriteLine(&quot;====================List of Customers=============
+foreach (Customer c in db.Customers)
+{
+Console.WriteLine($&quot;Customer ID: {c.CustID}\t, Name: {c.Name}\t,
+}
+}
+static void DisplayAllTVs()
+{
+Console.WriteLine(&quot;====================List of TVs===================
+foreach (TV t in db.TVs)
+{
+Console.WriteLine($&quot;TV ID: {t.TVID}\t, Brand: {t.TV_Brand}\t, Mod
+}
+}
+static void DisplayAllTVSales()
+{
+Console.WriteLine(&quot;====================List of TV Sales==============
+foreach (TVSale s in db.TVSales)
+{
+Console.WriteLine($&quot;Sale No: {s.SaleNo}\t, Cust ID: {s.CustID}\t,
+}
+}
+// =====================================================
+// Q1.4 — Static void methods with sorting
+// =====================================================
+static void DisplayCustomersSortedByName()
+{
+
+Console.WriteLine(&quot;====================List of Customers=============
+var sortedCustomers = db.Customers.orderBy(c =&gt; c.Name).ToList();
+foreach (Customer c in sortedCustomers)
+{
+Console.WriteLine($&quot;Customer ID: {c.CustID}\t, Name: {c.Name}\t,
+}
+}
+static void DisplayTVsSortedByUnitPriceDesc()
+{
+Console.WriteLine(&quot;====================List of TVs===================
+var sortedTVs = db.TVs.orderByDescending(t =&gt; t.UnitPrice).ToList();
+foreach (TV t in sortedTVs)
+{
+Console.WriteLine($&quot;TV ID: {t.TVID}\t, Brand: {t.TV_Brand}\t, Mod
+}
+}
+// =====================================================
+// Q1.5 — Process the sale of TV sets
+// =====================================================
+static void ProcessTVSale()
+{
+while (true)
+{
+Console.Write(&quot;Enter Customer ID (or XXX to exit): &quot;);
+string custInput = Console.ReadLine();
+if (custInput.Trim().ToUpper() == &quot;XXX&quot;)
+break;
+int custID = Convert.ToInt32(custInput);
+Console.Write(&quot;Enter TV ID: &quot;);
+int tvID = Convert.ToInt32(Console.ReadLine());
+// fetch the TV so we can validate quantity and update QoH
+TV selectedTV = db.TVs.FirstorDefault(t =&gt; t.TVID == tvID);
+Console.Write(&quot;Enter Quantity: &quot;);
+int qty = Convert.ToInt32(Console.ReadLine());
+// repeatedly prompt while requested quantity exceeds QoH
+while (qty &gt; selectedTV.QoH)
+{
+Console.WriteLine($&quot;Insufficient quantity. Available quantity
+Console.Write(&quot;Enter Quantity: &quot;);
+
+qty = Convert.ToInt32(Console.ReadLine());
+}
+// finalise the sale — write to the TVSale table
+TVSale newSale = new TVSale
+{
+CustID = custID,
+TVID = tvID,
+Qty = qty,
+UnitPrice = selectedTV.UnitPrice
+};
+db.TVSales.Add(newSale);
+// reduce QoH
+selectedTV.QoH -= qty;
+db.SaveChanges();
+Customer cust = db.Customers.FirstorDefault(c =&gt; c.CustID == cust
+Console.WriteLine($&quot;Sale completed: {qty} units of {selectedTV.TV
+}
+}
+// =====================================================
+// Q1.6 — Display details of all finalised TV sale transactions
+// =====================================================
+static void DisplayFinalisedSales()
+{
+Console.WriteLine(&quot;====================List of TV Sales==============
+var sales = db.TVSales.ToList();
+int saleCounter = 1;
+foreach (TVSale s in sales)
+{
+Customer cust = db.Customers.FirstorDefault(c =&gt; c.CustID == s.Cu
+TV tv = db.TVs.FirstorDefault(t =&gt; t.TVID == s.TVID);
+decimal subtotal = s.Qty * s.UnitPrice;
+Console.WriteLine($&quot;Sale No: {saleCounter}\t, Customer: {cust.Nam
+$&quot;Quantity: {s.Qty}\t, Unit Price: {s.UnitPric
+
+saleCounter++;
+}
+}
+}
+}
